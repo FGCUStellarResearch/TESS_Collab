@@ -21,7 +21,8 @@ if not os.path.isdir("toutput"):
 #read in list of file names
 #note that this filename and the location of the noisy input files below 
 #are currently hardcoded, which we should probably change
-filename = open("/media/derek/data/TESS/TDA-3 data/Data_Batch_TDA3_2.txt","r")
+#filename = open("/media/derek/data/TESS/TDA-3 data/Data_Batch_TDA3_2.txt","r")
+filename = open("/media/derek/data/TESS/TDA-4 data/Data_Batch_TDA.txt","r")
 for i in range(13):
     temp = filename.readline()
     
@@ -76,7 +77,8 @@ fcorr2 = []
 #read in data for each file
 for ifile in range(len(file_list[:])):
     file = file_list[ifile]
-    filename =  open("/media/derek/data/TESS/TDA-3 data/noisy_files_TDA3_2/"+file)
+    #filename =  open("/media/derek/data/TESS/TDA-3 data/noisy_files_TDA3_2/"+file)
+    filename =  open("/media/derek/data/TESS/TDA-4 data/noisy_files_TDA_4/"+file)
     mafs = np.loadtxt(filename, usecols=range(0,2), skiprows = 5)
     for i in range(len(mafs[:,0])):
         if ~np.isnan(float(mafs[i,1])):
@@ -114,6 +116,7 @@ for ifile in range(len(file_list[:])):
 
 #for each star, calculate angular distances to every other star 
 for ifile in range(len(file_list[:])):
+#for ifile in range(11,12):
     dist=[[],[]]
     for jfile in range(len(file_list[:])):
         tdist = sphere_dist(float(eclat[jfile]),float(eclon[jfile]),float(eclat[ifile]),float(eclon[ifile]))
@@ -173,15 +176,20 @@ for ifile in range(len(file_list[:])):
                 full_weight = np.append(full_weight,weight)
                 #tflux is total unweighted flux
                 tflux = np.append(tflux,test1)
+                comp_list = np.append(comp_list,test_star)
         #set up time array with 0.5-day resolution which spans the time range of the time series   
         #then histogram the data based on that array
         gx = np.arange(time_start,time_end,0.5)
         n = np.histogram(full_time,gx)
+        n = np.asarray(n[0])
+        n2 = np.histogram(time[ifile],gx)
+        n2 = np.asarray(n2[0])
         #if the least-populated bin has less than 2000 points, increase the size of the ensemble by first
         #increasing the level of acceptable variability until it exceeds the variability of the star. Once that happens,
         #increase the search radius and reset acceptable variability back to initial value. If the search radius exceeds
         #a limiting value (pi/4 at this point), accept that we can't do any better.
-        if np.min(n[0])<2000:
+        #if np.min(n[0])<400:
+        if np.min(n[n2>0])<1000:
             min_range = min_range+0.3
             if min_range > np.log10(np.max(drange[test_star])):
                 if (search_radius < 0.5):
@@ -344,7 +352,8 @@ for ifile in range(len(file_list[:])):
             
     fcorr2.append(ocflux)
     
-    outfile = 'toutput/'+star_name[ifile]+'.noisy_detrend'
+    outfile = 'toutput2/'+star_name[ifile]+'.noisy_detrend'
     file = open(outfile,'w')
-    np.savetxt(file,np.column_stack((time[ifile],flux[ifile], fcorr2[ifile])), fmt = '%f')
+    #np.savetxt(file,np.column_stack((time[ifile],flux[ifile], fcorr2[ifile])), fmt = '%f')
+    np.savetxt(file,np.column_stack((time[ifile],flux[ifile], ocflux)), fmt = '%f')
     file.close()
