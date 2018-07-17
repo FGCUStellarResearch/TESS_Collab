@@ -15,6 +15,7 @@ import sys
 from operator import add
 from sphere_dist import sphere_dist
 from copy import deepcopy
+from tqdm import tqdm
 #from time import sleep
 
 
@@ -23,7 +24,8 @@ if not os.path.isdir("toutput"):
     os.mkdir('toutput')
 
 #open sql file and find list of all stars in segment 2, camera 1, ccd 1
-conn = sqlite3.connect('/media/derek/data/TESS/TDA-4 data/Rasmus/todo-sector02.sqlite')
+# conn = sqlite3.connect('/media/derek/data/TESS/TDA-4 data/Rasmus/todo-sector02.sqlite')
+conn = sqlite3.connect('../data/Rasmus/todo-sector02.sqlite')
 c = conn.cursor()
 c.execute("SELECT * FROM todolist LEFT JOIN diagnostics ON todolist.priority = diagnostics.priority WHERE camera = 1 AND ccd = 1 AND mean_flux > 0 ;")
 seg2_list = c.fetchall()
@@ -35,10 +37,6 @@ Tmag = seg2_list[:,6]
 variability = seg2_list[:,15]
 eclat = seg2_list[:,17]
 eclon = seg2_list[:,18]
-
-
-
-
 
 #*.noisy files are time series with instrumental noise added
 
@@ -54,19 +52,20 @@ fcorr2 = []
 file_list = star_name
 
 #read in data for each file
-for ifile in range(len(star_name)):
-    filename =  open("/media/derek/data/TESS/TDA-4 data/Rasmus/data/noisy_by_sectors/Star"+str(star_name[ifile])+"-sector02.noisy")
+for ifile in tqdm(range(len(star_name))):
+    time.append([])
+    flux.append([])
+    # filename =  open("/media/derek/data/TESS/TDA-4 data/Rasmus/data/noisy_by_sectors/Star"+str(star_name[ifile])+"-sector02.noisy")
+    filename =  open("../data/Rasmus/data/noisy_by_sectors/Star"+str(star_name[ifile])+"-sector02.noisy")
     mafs = np.loadtxt(filename, usecols=range(0,2))
     #time.append(mafs[0].tolist())
     #flux.append(mafs[1].tolist())
     for i in range(len(mafs[:,0])):
         if ~np.isnan(float(mafs[i,1])):
-            time.append([])
-            flux.append([])
             time[ifile].append(mafs[i,0])
             flux[ifile].append(mafs[i,1])
-            
- 
+
+
 #time, flux are obvious
 #other parameters...
 #fmean is mean flux
@@ -75,12 +74,12 @@ for ifile in range(len(star_name)):
 #drange is relative differenced (whitened) standard deviation
     fmean.append(np.mean(flux[ifile]))
     fstd.append(np.std(np.diff(np.diff(flux[ifile]))))
-   
+
     trange = np.percentile(flux[ifile],95)-np.percentile(flux[ifile],5)
     trange = trange/np.mean(flux[ifile])
     trange = abs(trange)
     frange.append(trange)
-    
+
     trange = np.std(np.diff(flux[ifile]))/np.mean(flux[ifile])
     trange = abs(trange)
     drange.append(trange)
@@ -89,23 +88,23 @@ for ifile in range(len(star_name)):
 #take advantage of the fact that we know which stars are eclipsing/transiting/LPVs to flag them for
 #later elimination from the ensemble. Later need to change this to remove these based on feedback from classification
 #step. In general, for real data I believe it's best to be fairly aggressive about eliminating doubtful stars from
-#the ensemble to 
+#the ensemble to
 #    if "LPV" in star_type[ifile] or "Eclipse" in star_type[ifile] or "Transit" in star_type[ifile] or min(flux[ifile])<0:
 #        sflag.append(1)
 #    else:
 #        sflag.append(0)
 
-#for each star, calculate angular distances to every other star 
+#for each star, calculate angular distances to every other star
 #for ifile in range(len(file_list[:])):
-for ifile in range(0,15):
+for ifile in tqdm(range(0,15)):
     dist=[[],[]]
     for jfile in range(len(file_list[:])):
         tdist = np.sqrt((eclat[jfile]-eclat[ifile])**2+(eclon[jfile]-eclon[ifile])**2)
         #tdist = sphere_dist(float(eclat[jfile]),float(eclon[jfile]),float(eclat[ifile]),float(eclon[ifile]))
         dist[0].append(jfile)
         dist[1].append(tdist)
- 
-#artificially increase distance to the star itself, so when we sort by distance it ends up last       
+
+#artificially increase distance to the star itself, so when we sort by distance it ends up last
     dist = np.transpose(dist)
     dist[ifile][1] = 10*np.pi
 #sort by distance
@@ -149,7 +148,7 @@ for ifile in range(0,15):
                 #calculate weight for star to be added to the ensemble. weight is whitened stdev relative to mean flux
                 weight = np.ones_like(test1)
                 weight = weight*fmean[test_star]/fstd[test_star]
-                
+
                 #add time, flux, weight to ensemble light curve. flux is weighted flux
                 full_time = np.append(full_time,test0)
                 full_flux = np.append(full_flux,np.multiply(test1,weight))
@@ -157,7 +156,7 @@ for ifile in range(0,15):
                 #tflux is total unweighted flux
                 tflux = np.append(tflux,test1)
                 comp_list = np.append(comp_list,test_star)
-        #set up time array with 0.5-day resolution which spans the time range of the time series   
+        #set up time array with 0.5-day resolution which spans the time range of the time series
         #then histogram the data based on that array
         gx = np.arange(time_start,time_end,0.5)
         n = np.histogram(full_time,gx)
@@ -177,7 +176,7 @@ for ifile in range(0,15):
                 else:
                     search_radius = search_radius*1.2
                     min_range = min_range0
-        
+
             if search_radius > np.pi/4:
                 break
         else:
@@ -193,7 +192,7 @@ for ifile in range(0,15):
     full_time = full_time[idx]
     full_flux = full_flux[idx]
     full_weight = full_weight[idx]
- 
+
     #temporary copies of ensemble components
     full_time0 = full_time
     full_flux0 = full_flux
@@ -209,7 +208,7 @@ for ifile in range(0,15):
     temp_time = full_time[(full_time>time_start) & (full_time<time_end)]
     temp_flux = full_flux[(full_time>time_start) & (full_time<time_end)]
     temp_weight = full_weight[(full_time>time_start) & (full_time<time_end)]
-    
+
     full_time = temp_time
     full_flux = temp_flux
     full_weight = temp_weight
@@ -221,16 +220,16 @@ for ifile in range(0,15):
     if np.size(break_locs)>0:
         if (break_locs[0][-1] < np.size(full_time)):
             break_locs = np.append(break_locs, np.size(full_time)-1)
-            break_locs = np.insert(break_locs,0,0)    
-            cts, bin_edges = np.histogram(full_time,full_time[break_locs])  
-            bidx2 = np.digitize(full_time,full_time[break_locs]) 
+            break_locs = np.insert(break_locs,0,0)
+            cts, bin_edges = np.histogram(full_time,full_time[break_locs])
+            bidx2 = np.digitize(full_time,full_time[break_locs])
             num_segs = np.size(break_locs)-1
     else:
-            cts, bin_edges = np.histogram(full_time,np.squeeze(np.append(full_time[0],full_time[-1])))  
-            bidx2 = np.digitize(full_time,np.squeeze(np.append(full_time[0],full_time[-1]+1)))  
+            cts, bin_edges = np.histogram(full_time,np.squeeze(np.append(full_time[0],full_time[-1])))
+            bidx2 = np.digitize(full_time,np.squeeze(np.append(full_time[0],full_time[-1]+1)))
             num_segs = 1;
             break_locs = np.append(0,np.size(full_time)-1)
-        
+
     #pp will be components of spline fit to ensemble for each segment
     pp_ensemble = []
     #set up influx, inweight,intime as flux/weight/time of ensemble segment-by-segment
@@ -238,11 +237,11 @@ for ifile in range(0,15):
         influx = full_flux[bidx2-1==iseg]
         inweight = full_weight[bidx2-1==iseg]
         intime = full_time[bidx2-1==iseg]
-        
+
         intime0 = intime;
         influx0 = influx;
-    
-    #initialize bin size in days. We will fit the ensemble with splines 
+
+    #initialize bin size in days. We will fit the ensemble with splines
     bin_size = 4.0
     for ib in range(7):
         #decrease bin size and bin data
@@ -261,7 +260,7 @@ for ifile in range(0,15):
         #bin by bin build temporary arrays for weight, time, flux
         for ix in range(len(n)):
             ttweight = np.append(ttweight,np.nanmean(temp_weight[bidx==ix]))
-            ttime = np.append(ttime,np.nanmean(temp_time[bidx==ix]))    
+            ttime = np.append(ttime,np.nanmean(temp_time[bidx==ix]))
             ttflux = np.append(ttflux,np.nanmedian(np.divide(temp_flux[bidx==ix],temp_weight[bidx==ix])))
         ottime = ttime #keep track of originals since we will modify the tt arrays
         otflux = ttflux
@@ -270,7 +269,7 @@ for ifile in range(0,15):
         w2 = ttflux[~np.isnan(ttflux)]
 
         pp = scipy.interpolate.splrep(w1,w2,k=3) #interpolate a spline across the bins
-    
+
         break_locs = np.where(np.diff(time[ifile])>0.1) #find places where there is a break in time
         break_locs = np.array(break_locs)
         if break_locs.size>0: #set up boundaries to correspond with breaks
@@ -289,7 +288,7 @@ for ifile in range(0,15):
                 digit_bounds = np.append(np.min(time[ifile])-1e-5, digit_bounds)
             if digit_bounds[-1] < np.max(time[ifile]):
                 digit_bounds = np.append(digit_bounds,np.max(time[ifile])+1e-5)
-                
+
             bincts, edges = np.histogram(time[ifile],digit_bounds)
             bidx = np.digitize(time[ifile], digit_bounds) #binning for star
             bidx = bidx-1
@@ -321,18 +320,18 @@ for ifile in range(0,15):
     cflux = np.divide(flux[ifile],(scale*scipy.interpolate.splev(time[ifile],pp)))
     ocflux = deepcopy(cflux)
     cflux_mean = np.nanmean(cflux)
-    
-    
+
+
 #    seg_mean = []
-#    for iseg in range(num_segs): 
+#    for iseg in range(num_segs):
 #        print(len(cflux[tbidx==iseg]))
 #        seg_mean = np.append(seg_mean,np.nanmean(cflux[tbidx==iseg])/tscale[iseg])
 #        temp = cflux[tbidx==iseg]*cflux_mean/seg_mean[iseg]
 #        cflux[tbidx==iseg] = temp
-            
+
     fcorr2.append(ocflux)
-    
-    outfile = '/media/derek/data/TESS/TDA-4 data/Rasmus/toutput2/'+str(star_name[ifile])+'.noisy_detrend'
+
+    outfile = '../data/Rasmus/toutput2/'+str(star_name[ifile])+'.noisy_detrend'
     file = open(outfile,'w')
     #np.savetxt(file,np.column_stack((time[ifile],flux[ifile], fcorr2[ifile])), fmt = '%f')
     np.savetxt(file,np.column_stack((time[ifile],flux[ifile], ocflux)), fmt = '%f')
