@@ -40,13 +40,13 @@ eclon = seg2_list[:,18]
 
 #*.noisy files are time series with instrumental noise added
 
-time = []
+time = []                           #These have to be lists, as their contents are irregular in size
 flux=[]
 fcorr=[]
-fmean=[]
-fstd=[]
-frange=[]
-drange=[]
+fmean = np.zeros(len(star_name))    #These four being np.arrays speeds things up marginally
+fstd = np.zeros(len(star_name))
+frange = np.zeros(len(star_name))
+drange = np.zeros(len(star_name))
 sflag=[]
 fcorr2 = []
 file_list = star_name
@@ -59,25 +59,25 @@ for ifile in tqdm(range(len(star_name))):
 
     sel = ~np.isnan(mafs[1])
     time.append(mafs[0][sel].tolist())
-    flux.append(mafs[1][sek].tolist())
+    flux.append(mafs[1][sel].tolist())
 #time, flux are obvious
 #other parameters...
 #fmean is mean flux
 #fstd is standard deviation of twice-differenced (whitened) time series
 #frange is relative 5-95 percentile range
 #drange is relative differenced (whitened) standard deviation
-    fmean.append(np.mean(flux[ifile]))
-    fstd.append(np.std(np.diff(np.diff(flux[ifile]))))
+    fmean[ifile] = np.mean(flux[ifile])
+    fstd[ifile] = np.std(np.diff(np.diff(flux[ifile])))
 
     trange = np.percentile(flux[ifile],95)-np.percentile(flux[ifile],5)
     trange = trange/np.mean(flux[ifile])
     trange = abs(trange)
-    frange.append(trange)
+    frange[ifile] = trange
 
     trange = np.std(np.diff(flux[ifile]))/np.mean(flux[ifile])
     trange = abs(trange)
-    drange.append(trange)
-    sys.exit()
+    drange[ifile] = trange
+
 #sys.exit("ending")
 #take advantage of the fact that we know which stars are eclipsing/transiting/LPVs to flag them for
 #later elimination from the ensemble. Later need to change this to remove these based on feedback from classification
