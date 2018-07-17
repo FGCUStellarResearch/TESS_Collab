@@ -78,6 +78,7 @@ for ifile in tqdm(range(len(star_name))):
     trange = abs(trange)
     drange[ifile] = trange
 
+
 #sys.exit("ending")
 #take advantage of the fact that we know which stars are eclipsing/transiting/LPVs to flag them for
 #later elimination from the ensemble. Later need to change this to remove these based on feedback from classification
