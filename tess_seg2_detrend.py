@@ -15,7 +15,7 @@ import sys
 from operator import add
 from sphere_dist import sphere_dist
 from copy import deepcopy
-#from time import sleep
+from time import sleep
 
 
 #set up output directory
@@ -54,18 +54,19 @@ fcorr2 = []
 file_list = star_name
 
 #read in data for each file
-for ifile in range(len(star_name)):
+for ifile in range(len(star_name)): 
+    time.append([])
+    flux.append([])
     filename =  open("/media/derek/data/TESS/TDA-4 data/Rasmus/data/noisy_by_sectors/Star"+str(star_name[ifile])+"-sector02.noisy")
     mafs = np.loadtxt(filename, usecols=range(0,2))
     #time.append(mafs[0].tolist())
     #flux.append(mafs[1].tolist())
     for i in range(len(mafs[:,0])):
         if ~np.isnan(float(mafs[i,1])):
-            time.append([])
-            flux.append([])
             time[ifile].append(mafs[i,0])
             flux[ifile].append(mafs[i,1])
             
+
  
 #time, flux are obvious
 #other parameters...
@@ -96,8 +97,8 @@ for ifile in range(len(star_name)):
 #        sflag.append(0)
 
 #for each star, calculate angular distances to every other star 
-#for ifile in range(len(file_list[:])):
-for ifile in range(0,15):
+for ifile in range(len(file_list[:])):
+#for ifile in range(0,15):
     dist=[[],[]]
     for jfile in range(len(file_list[:])):
         tdist = np.sqrt((eclat[jfile]-eclat[ifile])**2+(eclon[jfile]-eclon[ifile])**2)
