@@ -53,19 +53,13 @@ file_list = star_name
 
 #read in data for each file
 for ifile in tqdm(range(len(star_name))):
-    time.append([])
-    flux.append([])
     # filename =  open("/media/derek/data/TESS/TDA-4 data/Rasmus/data/noisy_by_sectors/Star"+str(star_name[ifile])+"-sector02.noisy")
     filename =  open("../data/Rasmus/data/noisy_by_sectors/Star"+str(star_name[ifile])+"-sector02.noisy")
-    mafs = np.loadtxt(filename, usecols=range(0,2))
-    #time.append(mafs[0].tolist())
-    #flux.append(mafs[1].tolist())
-    for i in range(len(mafs[:,0])):
-        if ~np.isnan(float(mafs[i,1])):
-            time[ifile].append(mafs[i,0])
-            flux[ifile].append(mafs[i,1])
+    mafs = np.loadtxt(filename, usecols=range(0,2)).T
 
-
+    sel = ~np.isnan(mafs[1])
+    time.append(mafs[0][sel].tolist())
+    flux.append(mafs[1][sek].tolist())
 #time, flux are obvious
 #other parameters...
 #fmean is mean flux
@@ -83,7 +77,7 @@ for ifile in tqdm(range(len(star_name))):
     trange = np.std(np.diff(flux[ifile]))/np.mean(flux[ifile])
     trange = abs(trange)
     drange.append(trange)
-
+    sys.exit()
 #sys.exit("ending")
 #take advantage of the fact that we know which stars are eclipsing/transiting/LPVs to flag them for
 #later elimination from the ensemble. Later need to change this to remove these based on feedback from classification
