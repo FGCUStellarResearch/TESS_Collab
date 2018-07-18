@@ -355,8 +355,6 @@ def get_ensemble_correction(ifile, star_names, star_array, eclat, eclon):
             fun = lambda x: np.sum(np.square(np.divide(influx,np.median(influx))-x*pp(intime)))
             tscale = np.append(tscale,sciopt.fminbound(fun,0.9,1.5)) #this is a last fix to scaling, not currently used
             tbidx = deepcopy(bidx)
-            
-        bin_size = bin_size/2
 
         bin_size = bin_size/2
 
