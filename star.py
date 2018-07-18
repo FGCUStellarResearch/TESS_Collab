@@ -19,5 +19,5 @@ class Star(object):
 		self.frange = abs(frange)
 
 		# Relative differenced (whitened) standard deviation
-		srange = np.std(np.diff(self.flux)) / np.mean(self.flux)
-		self.srange = abs(srange)
+		drange = np.std(np.diff(self.flux)) / np.mean(self.flux)
+		self.drange = abs(drange)

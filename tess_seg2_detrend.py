@@ -57,6 +57,8 @@ sflag=[]
 fcorr2 = []
 file_list = star_names
 
+
+# CREATE STAR ARRAY
 # Read star data from each file and instanciate a Star object for each with all data
 star_array = np.empty(star_names.size, dtype=object)
 for name_index in tqdm(range(star_names.size)):
@@ -66,6 +68,7 @@ for name_index in tqdm(range(star_names.size)):
 
     nan_index = np.isnan(mafs[:,1])
     star_array[name_index] = Star(mafs[~nan_index,0], mafs[~nan_index,1])
+
 
     '''The below is Oli's commented readin'''
 # for ifile in tqdm(range(len(star_name))):
@@ -109,42 +112,41 @@ for name_index in tqdm(range(star_names.size)):
 
 #for each star, calculate angular distances to every other star
 #for ifile in range(len(file_list[:])):
+
 for ifile in tqdm(range(0,15)):
-    # dist=[[],[]]
-    dist = np.zeros([2,len(file_list)])
-    dist[0] = range(len(file_list))
-    dist[1] = np.sqrt((eclat-eclat[ifile])**2+(eclon-eclon[ifile])**2)
+    # Get distances from all stars to ifile star
+    dist = np.sqrt((eclat-eclat[ifile])**2+(eclon-eclon[ifile])**2)
+    
+    # Return array with index of stars by sorted distance. Ignore first index as its the distance to the star itself 
+    dist_index = np.argsort(dist)[1:]
+    dist_array = dist[dist_index]
 
-    #artificially increase distance to the star itself, so when we sort by distance it ends up last
-    dist = np.transpose(dist)
-    #dist[ifile][1] = 10*np.pi
-    dist[ifile][1] = 10000.0
-    #sort by distance
-    sort_dist = np.sort(dist,0)
-    #set up initial search radius to build ensemble so that 20 stars are included
-    search_radius = sort_dist[19][1]; #20 works well for 20s cadence...more for longer?
+    # Set up start/end times for stellar time series
+    time_start = time[0]
+    time_end = time[-1]
 
-    #set up start/end times for stellar time series
-    time_start = np.amin(time[ifile])
-    time_end = np.max(time[ifile])
-
-    #set minimum range parameter...this is log10 photometric range, and stars more variable than this will be
-    #excluded from the ensemble
+    # Set minimum range parameter...this is log10 photometric range, and stars more variable than this will be excluded from the ensemble
     min_range = -2.0
     min_range0 = min_range
     flag = 1
 
-    #start loop to build ensemble
+
+    # Start loop to build ensemble
     while True:
-        #num_star is number of stars in ensemble
+        # Number of stars in ensemble
         num_star = 0
-        #full_time,flux,weight are time,flux,weight points in the ensemble
-        full_time = np.array([])
-        full_flux = np.array([])
-        full_flag = np.array([])
-        full_weight = np.array([])
-        tflux = np.array([])
-        comp_list = np.array([])
+        # Initially look at the 20 closest stars
+        num_background_stars = 20
+
+        # Emsemble time
+        full_time = []
+        # Weighted flux
+        full_flux = []
+        full_flag = []
+        # Total unweighted flux
+        tflux = []
+        full_weight = []
+        comp_list = []
 
         #loop through all other stars to build ensemble
         #exclude stars outside search radius, flagged, too active (either relatively or absolutely)
@@ -152,43 +154,69 @@ for ifile in tqdm(range(0,15)):
         #light curves that are <0. Probably can remove this with real data.
 
         # #Put the selection conditions into a boolean array for all stars simultaneously
-        # sel = (dist[:,1] < search_radius) & (np.log10(drange) < min_range) & (drange < 10*drange[ifile])
+        # all(dist[:,1] < search_radius) & (np.log10(drange) < min_range) & (drange < 10*drange[ifile])
+        
+        
+        for index in dist_index[:num_background_stars]:
+            if (np.log10(star_array[index].drange) < min_range and star_array[index].drange < 10*star_array[ifile].drange):
+                num_star += 1
+
+                # Relative flux of star to be added to ensemble
+                rel_flux = star_array[test_star].flux / star_array[index].fmean
+
+                # Calculate weight for star to be added to the ensemble. weight is whitened stdev relative to mean flux
+                weight = np.full(rel_flux.size, star_array[test_star].fmean / star_array[test_star].fstd)
+
+                # Add new values to lists
+                full_time.append(star_array[index].time)
+                full_flux.append(rel_flux * weight)
+                full_weight.append(weight)
+                tflux.append(rel_flux)
+                comp_list.append(index)
+
+
+        """
         for test_star in range(len(file_list[:])):
             if (dist[test_star][1]<search_radius  and np.log10(drange[test_star]) < min_range and drange[test_star] < 10*drange[ifile] ):
                 num_star+=1
                 #calculate relative flux for star to be added to ensemble
-                test0 = time[test_star]
-                test1 = flux[test_star]
-                test1 = test1/fmean[test_star]
+                test0 = star_array[test_star].time
+                test1 = star_array[test_star].flux
+                test1 = test1/star_array[test_star].fmean
                 #calculate weight for star to be added to the ensemble. weight is whitened stdev relative to mean flux
                 weight = np.ones_like(test1)
-                weight = weight*fmean[test_star]/fstd[test_star]
+                weight = weight*star_array[test_star].fmean/star_array[test_star].fstd
 
                 #add time, flux, weight to ensemble light curve. flux is weighted flux
-                full_time = np.append(full_time,test0)
+                full_time = np.append(full_time,star_array[index].time)
                 full_flux = np.append(full_flux,np.multiply(test1,weight))
                 full_weight = np.append(full_weight,weight)
                 #tflux is total unweighted flux
                 tflux = np.append(tflux,test1)
                 comp_list = np.append(comp_list,test_star)
+        """
 
-        #set up time array with 0.5-day resolution which spans the time range of the time series
-        #then histogram the data based on that array
-        gx = np.arange(time_start,time_end,0.5)
-        n = np.histogram(full_time,gx)
+        # Set up time array with 0.5-day resolution which spans the time range of the time series
+        # Then histogram the data based on that array
+        gx = np.arange(time_start, time_end, 0.5)
+        n = np.histogram(full_time, gx)
         n = np.asarray(n[0])
-        n2 = np.histogram(time[ifile],gx)
+        n2 = np.histogram(time[ifile], gx)
         n2 = np.asarray(n2[0])
+
         #if the least-populated bin has less than 2000 points, increase the size of the ensemble by first
         #increasing the level of acceptable variability until it exceeds the variability of the star. Once that happens,
         #increase the search radius and reset acceptable variability back to initial value. If the search radius exceeds
         #a limiting value (pi/4 at this point), accept that we can't do any better.
         #if np.min(n[0])<400:
-        #print np.min(n[n2>0])
+        #print(np.min(n[n2>0]))
+        
+
+        """
         if np.min(n[n2>0])<500:
-            #print min_range
+            #print(min_range)
             min_range = min_range+0.3
-            if min_range > np.log10(np.max(drange[test_star])):
+            if min_range > np.log10(np.max(drange[ifile])):
                 #if (search_radius < 0.5):
                 if (search_radius < 100):
                     #search_radius = search_radius+0.1
@@ -201,7 +229,22 @@ for ifile in tqdm(range(0,15)):
             if search_radius > 400:
                 break
         else:
+            break
+        """
+
+        if np.min(n[n2>0])<500:
+            #print(min_range)
+            min_range = min_range+0.3
+            if min_range > np.log10(np.max(drange[ifile])):
+                num_background_stars += 1
+            #if search_radius > np.pi/4:
+            if dist_array[num_background_stars] > 400:
                 break
+        else:
+            break
+
+
+
     #clean up ensemble points by removing NaNs
     full_time = full_time[~np.isnan(full_flux)]
     full_weight = full_weight[~np.isnan(full_flux)]
