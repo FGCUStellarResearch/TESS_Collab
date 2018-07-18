@@ -124,8 +124,9 @@ for ifile in tqdm(range(0,15)):
 
     #artificially increase distance to the star itself, so when we sort by distance it ends up last
     dist = np.transpose(dist)
-    dist[ifile][1] = 10*np.pi
-    #sort by distance
+    #dist[ifile][1] = 10*np.pi
+    dist[ifile][1] = 10000.0
+#sort by distance
     sort_dist = np.sort(dist,0)
     #set up initial search radius to build ensemble so that 20 stars are included
     search_radius = sort_dist[19][1]; #20 works well for 20s cadence...more for longer?
@@ -192,16 +193,21 @@ for ifile in tqdm(range(0,15)):
         #increase the search radius and reset acceptable variability back to initial value. If the search radius exceeds
         #a limiting value (pi/4 at this point), accept that we can't do any better.
         #if np.min(n[0])<400:
-        if np.min(n[n2>0])<1000:
+        #print np.min(n[n2>0])
+        if np.min(n[n2>0])<500:
+            #print min_range
             min_range = min_range+0.3
             if min_range > np.log10(np.max(drange[test_star])):
-                if (search_radius < 0.5):
-                    search_radius = search_radius+0.1
+                #if (search_radius < 0.5):
+                if (search_radius < 100):
+                    #search_radius = search_radius+0.1
+                    search_radius = search_radius+10
                 else:
-                    search_radius = search_radius*1.2
+                    search_radius = search_radius*1.1
                     min_range = min_range0
-
-            if search_radius > np.pi/4:
+        
+            #if search_radius > np.pi/4:
+            if search_radius > 400:
                 break
         else:
                 break
