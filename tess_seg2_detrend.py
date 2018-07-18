@@ -97,8 +97,8 @@ for ifile in range(len(star_name)):
 #        sflag.append(0)
 
 #for each star, calculate angular distances to every other star 
-#for ifile in range(len(file_list[:])):
-for ifile in range(0,101):
+for ifile in range(len(file_list[:])):
+#for ifile in range(0,101):
     dist=[[],[]]
     for jfile in range(len(file_list[:])):
         tdist = np.sqrt((eclat[jfile]-eclat[ifile])**2+(eclon[jfile]-eclon[ifile])**2)
