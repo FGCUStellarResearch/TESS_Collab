@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # -*- coding: utf-8 -*-
 """
 Created on Thu Mar 29 09:58:55 2018
@@ -12,25 +14,30 @@ import scipy.interpolate
 import scipy.optimize as sciopt
 import sqlite3
 import sys
+from tqdm import tqdm
 from operator import add
 from sphere_dist import sphere_dist
 from copy import deepcopy
 from time import sleep
+
+from star import Star
 
 
 #set up output directory
 if not os.path.isdir("toutput"):
     os.mkdir('toutput')
 
+data_folder = "../TESS_Collab_Data"
+
 #open sql file and find list of all stars in segment 2, camera 1, ccd 1
-conn = sqlite3.connect('/media/derek/data/TESS/TDA-4 data/Rasmus/todo-sector02.sqlite')
+conn = sqlite3.connect('{}/todo-sector02.sqlite'.format(data_folder))
 c = conn.cursor()
 c.execute("SELECT * FROM todolist LEFT JOIN diagnostics ON todolist.priority = diagnostics.priority WHERE camera = 1 AND ccd = 1 AND mean_flux > 0 ;")
 seg2_list = c.fetchall()
 seg2_list = np.asarray(seg2_list)
 conn.close()
 
-star_name = seg2_list[:,1]
+star_names = seg2_list[:,1]
 Tmag = seg2_list[:,6]
 variability = seg2_list[:,15]
 eclat = seg2_list[:,17]
@@ -39,52 +46,50 @@ eclon = seg2_list[:,18]
 
 
 
-
 #*.noisy files are time series with instrumental noise added
 
-time = []
-flux=[]
-fcorr=[]
-fmean=[]
-fstd=[]
-frange=[]
-drange=[]
+# time = []
+# flux=[]
+# fcorr=[]
+# fmean=[]
+# fstd=[]
+# frange=[]
+# drange=[]
 sflag=[]
 fcorr2 = []
-file_list = star_name
+file_list = star_names
 
-#read in data for each file
-for ifile in range(len(star_name)): 
-    time.append([])
-    flux.append([])
-    filename =  open("/media/derek/data/TESS/TDA-4 data/Rasmus/data/noisy_by_sectors/Star"+str(star_name[ifile])+"-sector02.noisy")
+
+# Read star data from each file and instanciate a Star object for each with all data
+star_array = np.empty(star_names.size, dtype=object)
+for name_index in tqdm(range(star_names.size)): 
+
+    filename =  '{}/noisy_by_sectors/Star{}-sector02.noisy'.format(data_folder, star_names[name_index])
     mafs = np.loadtxt(filename, usecols=range(0,2))
-    #time.append(mafs[0].tolist())
-    #flux.append(mafs[1].tolist())
-    for i in range(len(mafs[:,0])):
-        if ~np.isnan(float(mafs[i,1])):
-            time[ifile].append(mafs[i,0])
-            flux[ifile].append(mafs[i,1])
-            
+    
+    nan_index = np.isnan(mafs[:,1])
+    star_array[name_index] = Star(mafs[~nan_index,0], mafs[~nan_index,1])
+    
 
- 
+
+
 #time, flux are obvious
 #other parameters...
 #fmean is mean flux
 #fstd is standard deviation of twice-differenced (whitened) time series
 #frange is relative 5-95 percentile range
 #drange is relative differenced (whitened) standard deviation
-    fmean.append(np.mean(flux[ifile]))
-    fstd.append(np.std(np.diff(np.diff(flux[ifile]))))
+    # fmean.append(np.mean(flux[ifile]))
+    # fstd.append(np.std(np.diff(np.diff(flux[ifile]))))
    
-    trange = np.percentile(flux[ifile],95)-np.percentile(flux[ifile],5)
-    trange = trange/np.mean(flux[ifile])
-    trange = abs(trange)
-    frange.append(trange)
+    # trange = np.percentile(flux[ifile],95)-np.percentile(flux[ifile],5)
+    # trange = trange/np.mean(flux[ifile])
+    # trange = abs(trange)
+    # frange.append(trange)
     
-    trange = np.std(np.diff(flux[ifile]))/np.mean(flux[ifile])
-    trange = abs(trange)
-    drange.append(trange)
+    # trange = np.std(np.diff(flux[ifile]))/np.mean(flux[ifile])
+    # trange = abs(trange)
+    # drange.append(trange)
 
 #sys.exit("ending")
 #take advantage of the fact that we know which stars are eclipsing/transiting/LPVs to flag them for
