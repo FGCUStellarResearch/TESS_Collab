@@ -13,6 +13,7 @@ import scipy.optimize as sciopt
 from operator import add
 from sphere_dist import sphere_dist
 from copy import deepcopy
+from tqdm import tqdm
 
 '''Create output folder'''
 #set up output directory
@@ -24,7 +25,8 @@ if not os.path.isdir("toutput"):
 #note that this filename and the location of the noisy input files below
 #are currently hardcoded, which we should probably change
 #filename = open("/media/derek/data/TESS/TDA-3 data/Data_Batch_TDA3_2.txt","r")
-filename = open("/media/derek/data/TESS/TDA-4 data/Data_Batch_TDA.txt","r")
+# filename = open("/media/derek/data/TESS/TDA-4 data/Data_Batch_TDA.txt","r")
+filename = open("../data/TDA-3 data/Data_Batch_TDA3_2.txt","r")
 for i in range(13):
     temp = filename.readline()
 
@@ -40,6 +42,8 @@ logg = []
 logg_err = []
 star_type = []
 
+__override__ = 50
+n = 0.
 #split up info and assign to lists
 for line in filename:
     words= line.split(",")
@@ -54,7 +58,9 @@ for line in filename:
     logg.append(words[8])
     logg_err.append(words[9])
     star_type.append(words[10])
-
+    n += 1.
+    if n > __override__:
+        break
 filename.close
 
 '''Create target lists from batch file'''
@@ -79,10 +85,11 @@ fcorr2 = []
 
 '''Loaded data < # of files (for each star:)'''
 #read in data for each file
-for ifile in range(len(file_list[:])):
+for ifile in tqdm(range(len(file_list[:]))):
     file = file_list[ifile]
     #filename =  open("/media/derek/data/TESS/TDA-3 data/noisy_files_TDA3_2/"+file)
-    filename =  open("/media/derek/data/TESS/TDA-4 data/noisy_files_TDA_4/"+file)
+    # filename =  open("/media/derek/data/TESS/TDA-4 data/noisy_files_TDA_4/"+file)
+    filename = open("../data/TDA-3 data/"+file)
     mafs = np.loadtxt(filename, usecols=range(0,2), skiprows = 5)
     for i in range(len(mafs[:,0])):
         if ~np.isnan(float(mafs[i,1])):
@@ -120,7 +127,7 @@ for ifile in range(len(file_list[:])):
 
 '''# Processed stars < # input stars (for each star:)'''
 #for each star, calculate angular distances to every other star
-for ifile in range(len(file_list[:])):
+for ifile in tqdm(range(len(file_list[:]))):
 #for ifile in range(11,12):
     '''Calculate angular distance to every other target'''
     dist=[[],[]]
@@ -382,7 +389,7 @@ for ifile in range(len(file_list[:])):
     fcorr2.append(ocflux)
 
     '''Save output'''
-    outfile = 'toutput2/'+star_name[ifile]+'.noisy_detrend'
+    outfile = 'toutput/'+star_name[ifile]+'.noisy_detrend'
     file = open(outfile,'w')
     #np.savetxt(file,np.column_stack((time[ifile],flux[ifile], fcorr2[ifile])), fmt = '%f')
     np.savetxt(file,np.column_stack((time[ifile],flux[ifile], ocflux)), fmt = '%f')
