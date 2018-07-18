@@ -35,8 +35,8 @@ conn.close()
 star_name = seg2_list[:,1]
 Tmag = seg2_list[:,6]
 variability = seg2_list[:,15]
-eclat = seg2_list[:,17]
-eclon = seg2_list[:,18]
+eclat = seg2_list[:,17].astype(float)
+eclon = seg2_list[:,18].astype(float)
 
 #*.noisy files are time series with instrumental noise added
 
@@ -54,18 +54,20 @@ file_list = star_name
 #read in data for each file
 for ifile in tqdm(range(len(star_name))):
     # filename =  open("/media/derek/data/TESS/TDA-4 data/Rasmus/data/noisy_by_sectors/Star"+str(star_name[ifile])+"-sector02.noisy")
-    filename =  open("../data/Rasmus/data/noisy_by_sectors/Star"+str(star_name[ifile])+"-sector02.noisy")
-    mafs = np.loadtxt(filename, usecols=range(0,2)).T
+    with open("../data/Rasmus/data/noisy_by_sectors/Star"+str(star_name[ifile])+"-sector02.noisy") as filename:
+    # filename =  open("../data/Rasmus/data/noisy_by_sectors/Star"+str(star_name[ifile])+"-sector02.noisy")
+        mafs = np.loadtxt(filename, usecols=range(0,2)).T
 
-    sel = ~np.isnan(mafs[1])
-    time.append(mafs[0][sel].tolist())
-    flux.append(mafs[1][sel].tolist())
-#time, flux are obvious
-#other parameters...
-#fmean is mean flux
-#fstd is standard deviation of twice-differenced (whitened) time series
-#frange is relative 5-95 percentile range
-#drange is relative differenced (whitened) standard deviation
+        sel = ~np.isnan(mafs[1])
+        time.append(mafs[0][sel].tolist())
+        flux.append(mafs[1][sel].tolist())
+
+    #time, flux are obvious
+    #other parameters...
+    #fmean is mean flux
+    #fstd is standard deviation of twice-differenced (whitened) time series
+    #frange is relative 5-95 percentile range
+    #drange is relative differenced (whitened) standard deviation
     fmean[ifile] = np.mean(flux[ifile])
     fstd[ifile] = np.std(np.diff(np.diff(flux[ifile])))
 
@@ -77,7 +79,6 @@ for ifile in tqdm(range(len(star_name))):
     trange = np.std(np.diff(flux[ifile]))/np.mean(flux[ifile])
     trange = abs(trange)
     drange[ifile] = trange
-
 
 #sys.exit("ending")
 #take advantage of the fact that we know which stars are eclipsing/transiting/LPVs to flag them for
@@ -92,49 +93,52 @@ for ifile in tqdm(range(len(star_name))):
 #for each star, calculate angular distances to every other star
 #for ifile in range(len(file_list[:])):
 for ifile in tqdm(range(0,15)):
-    dist=[[],[]]
-    for jfile in range(len(file_list[:])):
-        tdist = np.sqrt((eclat[jfile]-eclat[ifile])**2+(eclon[jfile]-eclon[ifile])**2)
-        #tdist = sphere_dist(float(eclat[jfile]),float(eclon[jfile]),float(eclat[ifile]),float(eclon[ifile]))
-        dist[0].append(jfile)
-        dist[1].append(tdist)
+    # dist=[[],[]]
+    dist = np.zeros([2,len(file_list)])
+    dist[0] = range(len(file_list))
+    dist[1] = np.sqrt((eclat-eclat[ifile])**2+(eclon-eclon[ifile])**2)
 
-#artificially increase distance to the star itself, so when we sort by distance it ends up last
+    #artificially increase distance to the star itself, so when we sort by distance it ends up last
     dist = np.transpose(dist)
     dist[ifile][1] = 10*np.pi
-#sort by distance
+    #sort by distance
     sort_dist = np.sort(dist,0)
-#set up initial search radius to build ensemble so that 20 stars are included
+    #set up initial search radius to build ensemble so that 20 stars are included
     search_radius = sort_dist[19][1]; #20 works well for 20s cadence...more for longer?
 
-#set up start/end times for stellar time series
+    #set up start/end times for stellar time series
     time_start = np.amin(time[ifile])
     time_end = np.max(time[ifile])
 
-#set minimum range parameter...this is log10 photometric range, and stars more variable than this will be
-#excluded from the ensemble
+    #set minimum range parameter...this is log10 photometric range, and stars more variable than this will be
+    #excluded from the ensemble
     min_range = -2.0
     min_range0 = min_range
     flag = 1
 
-#start loop to build ensemble
+    #start loop to build ensemble
     while True:
         #num_star is number of stars in ensemble
         num_star = 0
         #full_time,flux,weight are time,flux,weight points in the ensemble
-        full_time = np.asarray([])
-        full_flux = np.asarray([])
-        full_flag = np.asarray([])
-        full_weight = np.asarray([])
-        tflux = np.asarray([])
-        comp_list = np.asarray([])
+        full_time = np.array([])
+        full_flux = np.array([])
+        full_flag = np.array([])
+        full_weight = np.array([])
+        tflux = np.array([])
+        comp_list = np.array([])
 
         #loop through all other stars to build ensemble
         #exclude stars outside search radius, flagged, too active (either relatively or absolutely)
         #excluding stars with negative flux is only required because the synthetic data have some flawed
         #light curves that are <0. Probably can remove this with real data.
+
+        # #Put the selection conditions into a boolean array for all stars simultaneously
+        # sel = (dist[:,1] < search_radius) & (np.log10(drange) < min_range) & (drange < 10*drange[ifile])
+        # #calculate relative flux for star to be added to ensemble
+        # test0 = time
         for test_star in range(len(file_list[:])):
-            if (dist[test_star][1]<search_radius  and np.log10(drange[test_star]) < min_range and drange[test_star] < 10*drange[ifile]  ):
+            if (dist[test_star][1]<search_radius  and np.log10(drange[test_star]) < min_range and drange[test_star] < 10*drange[ifile] ):
                 num_star+=1
                 #calculate relative flux for star to be added to ensemble
                 test0 = time[test_star]
@@ -151,6 +155,7 @@ for ifile in tqdm(range(0,15)):
                 #tflux is total unweighted flux
                 tflux = np.append(tflux,test1)
                 comp_list = np.append(comp_list,test_star)
+
         #set up time array with 0.5-day resolution which spans the time range of the time series
         #then histogram the data based on that array
         gx = np.arange(time_start,time_end,0.5)
