@@ -96,13 +96,16 @@ def read_stars(star_names):
         star_array[name_index] = Star(mafs[~nan_index,0], mafs[~nan_index,1])
     return star_array
 
-def get_ensemble_corrections(star_array):
+if __name__ == "__main__":
+    star_names, Tmag, variability, eclat, eclon = read_todolist()
+    star_array = read_stars(star_names)
+
     #for each star, calculate angular distances to every other star
     #for ifile in range(len(file_list[:])):
     for ifile in tqdm(range(0,15)):
         # dist=[[],[]]
-        dist = np.zeros([2,len(file_list)])
-        dist[0] = range(len(file_list))
+        dist = np.zeros([2,len(star_names)])
+        dist[0] = range(len(star_names))
         dist[1] = np.sqrt((eclat-eclat[ifile])**2+(eclon-eclon[ifile])**2)
 
         #artificially increase distance to the star itself, so when we sort by distance it ends up last
@@ -143,7 +146,7 @@ def get_ensemble_corrections(star_array):
 
             # #Put the selection conditions into a boolean array for all stars simultaneously
             # sel = (dist[:,1] < search_radius) & (np.log10(drange) < min_range) & (drange < 10*drange[ifile])
-            for test_star in range(len(file_list[:])):
+            for test_star in range(len(star_names[:])):
                 if (dist[test_star][1]<search_radius  and
                     np.log10(star_array[test_star].drange) < min_range and
                     star_array[test_star].drange < 10*star_array[ifile].drange):
@@ -342,7 +345,7 @@ def get_ensemble_corrections(star_array):
     #        temp = cflux[tbidx==iseg]*cflux_mean/seg_mean[iseg]
     #        cflux[tbidx==iseg] = temp
 
-        fcorr2.append(ocflux)
+        # fcorr2.append(ocflux)
 
         outfile = '../data/Rasmus/toutput2/'+str(star_names[ifile])+'.noisy_detrend'
         file = open(outfile,'w')
