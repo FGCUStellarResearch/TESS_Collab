@@ -268,11 +268,9 @@ def get_ensemble_correction(ifile, star_names, star_array, eclat, eclon):
         influx0 = influx;
 
     #initialize bin size in days. We will fit the ensemble with splines
-    bin_size = 4.0
+    bin_size = 2.0
     for ib in range(7):
-        #decrease bin size and bin data
-        bin_size = bin_size/2
-        gx = np.arange(time_start,time_end,bin_size)
+        gx = np.arange(time_start-.5*bin_size,time_end+bin_size,bin_size)
         # bidx  = np.digitize(full_time,gx)
         bidx = np.digitize(temp_time, gx)
         bidx = bidx-1
@@ -280,8 +278,6 @@ def get_ensemble_correction(ifile, star_names, star_array, eclat, eclon):
         n, bin_edges = np.histogram(temp_time, gx) #bin data
         #if there are too few points in the least-populated bin after the first couple of iterations, break out
         #and stop decreasing the size of the bins
-        if np.nanmin(n) < 10 and ib > 2:
-            break
         ttflux = []
         ttweight = []
         ttime = []
@@ -370,7 +366,7 @@ if __name__ == "__main__":
 
     '''Get the correction, apply the correction, output the data.'''
     #for ifile in range(len(file_list[:])):
-    for ifile in tqdm(len(file_list[:15])):
+    for ifile in tqdm(range(len(star_names[:15]))):
         pp = get_ensemble_correction(ifile, star_names, star_array, eclat, eclon)
 
         scale = 1.0
