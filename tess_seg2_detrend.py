@@ -181,7 +181,7 @@ if __name__ == "__main__":
             #a limiting value (pi/4 at this point), accept that we can't do any better.
             #if np.min(n[0])<400:
             #print np.min(n[n2>0])
-            if np.min(n[n2>0])<500:
+            if np.min(n[n2>0])<1000:
                 #print min_range
                 min_range = min_range+0.3
                 if min_range > np.log10(np.max(star_array[ifile].drange)):
@@ -264,9 +264,11 @@ if __name__ == "__main__":
             #decrease bin size and bin data
             bin_size = bin_size/2
             gx = np.arange(time_start,time_end,bin_size)
-            bidx  = np.digitize(full_time,gx)
+            # bidx  = np.digitize(full_time,gx)
+            bidx = np.digitize(temp_time, gx)
             bidx = bidx-1
-            n, bin_edges = np.histogram(full_time,gx) #bin data
+            # n, bin_edges = np.histogram(full_time,gx) #bin data
+            n, bin_edges = np.histogram(temp_time, gx) #bin data
             #if there are too few points in the least-populated bin after the first couple of iterations, break out
             #and stop decreasing the size of the bins
             if np.nanmin(n) < 10 and ib > 2:
@@ -282,10 +284,25 @@ if __name__ == "__main__":
             ottime = ttime #keep track of originals since we will modify the tt arrays
             otflux = ttflux
             #clean up any NaNs
+            ttime = np.asarray(ttime)
+            ttflux = np.asarray(ttflux)
+
             w1 = ttime[~np.isnan(ttflux)]
             w2 = ttflux[~np.isnan(ttflux)]
 
-            pp = scipy.interpolate.splrep(w1,w2,k=3) #interpolate a spline across the bins
+            # pp = scipy.interpolate.splrep(w1,w2,k=3) #interpolate a spline across the bins
+
+            counter = len(ttime)
+            while counter > 0:
+                pp = scipy.interpolate.pchip(w1,w2)
+                diff1 = np.divide(temp_flux,temp_weight)-pp(temp_time)
+                sdiff = 4*np.nanstd(diff1)
+                counter = len(diff1[np.abs(diff1)>sdiff])
+                temp_time = temp_time[np.abs(diff1)<sdiff]
+                temp_flux = temp_flux[np.abs(diff1)<sdiff]
+                temp_weight = temp_weight[np.abs(diff1)<sdiff]
+
+            pp = scipy.interpolate.pchip(w1,w2)
 
             break_locs = np.where(np.diff(star_array[ifile].time)>0.1) #find places where there is a break in time
             break_locs = np.array(break_locs)
@@ -329,12 +346,15 @@ if __name__ == "__main__":
                 influx = influx[bidx==iseg]
                 intime = intime[bidx==iseg]
 
-                fun = lambda x: np.sum(np.square(np.divide(influx,np.median(influx))-x*scipy.interpolate.splev(intime,pp)))
+                # fun = lambda x: np.sum(np.square(np.divide(influx,np.median(influx))-x*scipy.interpolate.splev(intime,pp)))
+                fun = lambda x: np.sum(np.square(np.divide(influx,np.median(influx))-x*pp(intime)))
                 tscale = np.append(tscale,sciopt.fminbound(fun,0.9,1.5)) #this is a last fix to scaling, not currently used
                 tbidx = deepcopy(bidx)
 
+            bin_size = bin_size/2
         scale = 1.0
-        cflux = np.divide(star_array[ifile].flux,(scale*scipy.interpolate.splev(star_array[ifile].time,pp)))
+        # cflux = np.divide(star_array[ifile].flux,(scale*scipy.interpolate.splev(star_array[ifile].time,pp)))
+        cflux = np.divide(star_array[ifile].flux,(scale*pp(star_array[ifile].time)))
         ocflux = deepcopy(cflux)
         cflux_mean = np.nanmean(cflux)
 
@@ -349,6 +369,6 @@ if __name__ == "__main__":
 
         outfile = '../data/Rasmus/toutput2/'+str(star_names[ifile])+'.noisy_detrend'
         file = open(outfile,'w')
-        #np.savetxt(file,np.column_stack((time[ifile],flux[ifile], fcorr2[ifile])), fmt = '%f')
+        #np.savetxt(file,np.column_stack((star_array[ifile].time,star_array[ifile].flux, fcorr2[ifile])), fmt = '%f')
         np.savetxt(file,np.column_stack((star_array[ifile].time,star_array[ifile].flux, ocflux)), fmt = '%f')
         file.close()
