@@ -27,7 +27,8 @@ from star import Star
 if not os.path.isdir("toutput"):
     os.mkdir('toutput')
 
-data_folder = "../TESS_Collab_Data"
+# data_folder = "../TESS_Collab_Data"
+data_folder = "../data/Rasmus/data"
 
 #open sql file and find list of all stars in segment 2, camera 1, ccd 1
 conn = sqlite3.connect('../data/Rasmus/todo-sector02.sqlite')
@@ -45,54 +46,27 @@ variability = seg2_list[:,15]
 eclat = seg2_list[:,17].astype(float)
 eclon = seg2_list[:,18].astype(float)
 
-
-
-
-
-#*.noisy files are time series with instrumental noise added
-
-time = []                           #These have to be lists, as their contents are irregular in size
-flux=[]
-fcorr=[]
-fmean = np.zeros(len(star_name))    #These four being np.arrays speeds things up marginally
-fstd = np.zeros(len(star_name))
-frange = np.zeros(len(star_name))
-drange = np.zeros(len(star_name))
+# time = []                           #These have to be lists, as their contents are irregular in size
+# flux=[]
+# fcorr=[]
+# fmean = np.zeros(len(star_names))    #These four being np.arrays speeds things up marginally
+# fstd = np.zeros(len(star_names))
+# frange = np.zeros(len(star_names))
+# drange = np.zeros(len(star_names))
 sflag=[]
 fcorr2 = []
 file_list = star_names
 
-
 # Read star data from each file and instanciate a Star object for each with all data
 star_array = np.empty(star_names.size, dtype=object)
-for name_index in tqdm(range(star_names.size)): 
+for name_index in tqdm(range(star_names.size)):
 
     filename =  '{}/noisy_by_sectors/Star{}-sector02.noisy'.format(data_folder, star_names[name_index])
     mafs = np.loadtxt(filename, usecols=range(0,2))
-    
+
     nan_index = np.isnan(mafs[:,1])
     star_array[name_index] = Star(mafs[~nan_index,0], mafs[~nan_index,1])
-    
 
-
-
-#time, flux are obvious
-#other parameters...
-#fmean is mean flux
-#fstd is standard deviation of twice-differenced (whitened) time series
-#frange is relative 5-95 percentile range
-#drange is relative differenced (whitened) standard deviation
-    # fmean.append(np.mean(flux[ifile]))
-    # fstd.append(np.std(np.diff(np.diff(flux[ifile]))))
-   
-    # trange = np.percentile(flux[ifile],95)-np.percentile(flux[ifile],5)
-    # trange = trange/np.mean(flux[ifile])
-    # trange = abs(trange)
-    # frange.append(trange)
-    
-    # trange = np.std(np.diff(flux[ifile]))/np.mean(flux[ifile])
-    # trange = abs(trange)
-    # drange.append(trange)
     '''The below is Oli's commented readin'''
 # for ifile in tqdm(range(len(star_name))):
 #     # filename =  open("/media/derek/data/TESS/TDA-4 data/Rasmus/data/noisy_by_sectors/Star"+str(star_name[ifile])+"-sector02.noisy")
@@ -103,6 +77,25 @@ for name_index in tqdm(range(star_names.size)):
 #         sel = ~np.isnan(mafs[1])
 #         time.append(mafs[0][sel].tolist())
 #         flux.append(mafs[1][sel].tolist())
+    #
+    ## time, flux are obvious
+    ## other parameters...
+    ## fmean is mean flux
+    ## fstd is standard deviation of twice-differenced (whitened) time series
+    ## frange is relative 5-95 percentile range
+    ## drange is relative differenced (whitened) standard deviation
+    ## fmean.append(np.mean(flux[ifile]))
+    ## fstd.append(np.std(np.diff(np.diff(flux[ifile]))))
+
+    # trange = np.percentile(flux[ifile],95)-np.percentile(flux[ifile],5)
+    # trange = trange/np.mean(flux[ifile])
+    # trange = abs(trange)
+    # frange.append(trange)
+
+    # trange = np.std(np.diff(flux[ifile]))/np.mean(flux[ifile])
+    # trange = abs(trange)
+    # drange.append(trange)
+
 
 #sys.exit("ending")
 #take advantage of the fact that we know which stars are eclipsing/transiting/LPVs to flag them for
@@ -126,7 +119,7 @@ for ifile in tqdm(range(0,15)):
     dist = np.transpose(dist)
     #dist[ifile][1] = 10*np.pi
     dist[ifile][1] = 10000.0
-#sort by distance
+    #sort by distance
     sort_dist = np.sort(dist,0)
     #set up initial search radius to build ensemble so that 20 stars are included
     search_radius = sort_dist[19][1]; #20 works well for 20s cadence...more for longer?
@@ -160,8 +153,6 @@ for ifile in tqdm(range(0,15)):
 
         # #Put the selection conditions into a boolean array for all stars simultaneously
         # sel = (dist[:,1] < search_radius) & (np.log10(drange) < min_range) & (drange < 10*drange[ifile])
-        # #calculate relative flux for star to be added to ensemble
-        # test0 = time
         for test_star in range(len(file_list[:])):
             if (dist[test_star][1]<search_radius  and np.log10(drange[test_star]) < min_range and drange[test_star] < 10*drange[ifile] ):
                 num_star+=1
@@ -205,7 +196,7 @@ for ifile in tqdm(range(0,15)):
                 else:
                     search_radius = search_radius*1.1
                     min_range = min_range0
-        
+
             #if search_radius > np.pi/4:
             if search_radius > 400:
                 break
@@ -350,7 +341,6 @@ for ifile in tqdm(range(0,15)):
     cflux = np.divide(flux[ifile],(scale*scipy.interpolate.splev(time[ifile],pp)))
     ocflux = deepcopy(cflux)
     cflux_mean = np.nanmean(cflux)
-
 
 #    seg_mean = []
 #    for iseg in range(num_segs):
